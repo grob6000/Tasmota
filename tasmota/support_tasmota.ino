@@ -358,25 +358,17 @@ void SetLedPowerIdx(uint32_t led, uint32_t state)
     } else {
       led_power &= (0xFF ^ mask);
     }
-	uint16_t led_pwm_set = 0;
-	if (bitRead(Settings.ledpwm_mask, led)) {
-		if (bitRead(led_inverted, led)) {
-		  if (state) {
-			led_pwm_set = Settings.pwm_range - Settings.ledpwm_on;
-		  } else {
-			led_pwm_set = Settings.pwm_range - Settings.ledpwm_off;
-		  }
-		} else {
-		  if (state) {
-			led_pwm_set = Settings.ledpwm_on;
-		  } else {
-			led_pwm_set = Settings.ledpwm_off;
-		  }
-		}
-		analogWrite(Pin(GPIO_LED1, led), led_pwm_set);
-	} else {
-		DigitalWrite(GPIO_LED1, led, bitRead(led_inverted, led) ? !state : state);
-	}
+    uint16_t pwm = 0;
+    if (bitRead(Settings.ledpwm_mask, led)) {
+#ifdef USE_LIGHT
+      pwm = changeUIntScale(ledGamma10(state ? Settings.ledpwm_on : Settings.ledpwm_off), 0, 1023, 0, Settings.pwm_range); // gamma corrected
+#else //USE_LIGHT
+      pwm = changeUIntScale((uint16_t)(state ? Settings.ledpwm_on : Settings.ledpwm_off), 0, 255, 0, Settings.pwm_range); // linear
+#endif //USE_LIGHT
+      analogWrite(Pin(GPIO_LED1, led), bitRead(led_inverted, led) ? Settings.pwm_range - pwm : pwm);
+    } else {
+      DigitalWrite(GPIO_LED1, led, bitRead(led_inverted, led) ? !state : state);
+    }
   }
 #ifdef USE_BUZZER
   if (led == 0) {
@@ -411,8 +403,9 @@ void SetLedLink(uint32_t state)
   uint32_t led_pin = Pin(GPIO_LEDLNK);
   uint32_t led_inv = ledlnk_inverted;
   if (99 == led_pin) {                    // Legacy - LED1 is status
-	SetLedPowerIdx(0, state);
-  } else if (led_pin < 99) {
+    SetLedPowerIdx(0, state);
+  }
+  else if (led_pin < 99) {
     if (state) { state = 1; }
     digitalWrite(led_pin, (led_inv) ? !state : state);
   }
