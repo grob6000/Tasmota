@@ -336,11 +336,19 @@ void CmndBacklog(void)
   }
 }
 
+uint32_t ValidateRangeEnforce(uint32_t val, uint32_t min, uint32_t max)
+{
+  return (val<min) ? min : ((val>max) ? max : val);
+}
+
+uint32_t ValidateRangeDefault(uint32_t val, uint32_t min, uint32_t max, uint32_t valdefault)
+{
+	return (val<=min) ? valdefault : ((val>max) ? valdefault : val);
+}
+
 void CmndDelay(void)
 {
-  if ((XdrvMailbox.payload >= (MIN_BACKLOG_DELAY / 100)) && (XdrvMailbox.payload <= 3600)) {
-    backlog_delay = millis() + (100 * XdrvMailbox.payload);
-  }
+  backlog_delay = millis() + (100 * EnforceRange(XdrvMailbox.payload, MIN_BACKLOG_DELAY / 100, 3600);
   uint32_t bl_delay = 0;
   long bl_delta = TimePassedSince(backlog_delay);
   if (bl_delta < 0) { bl_delay = (bl_delta *-1) / 100; }
@@ -349,14 +357,13 @@ void CmndDelay(void)
 
 void CmndPower(void)
 {
-  if ((XdrvMailbox.index > 0) && (XdrvMailbox.index <= devices_present)) {
-    if ((XdrvMailbox.payload < POWER_OFF) || (XdrvMailbox.payload > POWER_BLINK_STOP)) {
-      XdrvMailbox.payload = POWER_SHOW_STATE;
-    }
+  XdrvMailbox.index = ValidateRangeDefault(XdrvMailbox.index, 1, devices_present, 1);
+  XdrvMailbox.payload = ValidateRangeDefault(XdrvMailbox.payload, POWER_OFF, POWER_BLINK_STOP, POWER_SHOW_STATE);
+
 //      Settings.flag.device_index_enable = XdrvMailbox.usridx;  // SetOption26 - Switch between POWER or POWER1
-    ExecuteCommandPower(XdrvMailbox.index, XdrvMailbox.payload, SRC_IGNORE);
-    mqtt_data[0] = '\0';
-  }
+  ExecuteCommandPower(XdrvMailbox.index, XdrvMailbox.payload, SRC_IGNORE);
+  mqtt_data[0] = '\0';
+  
   else if (0 == XdrvMailbox.index) {
     if ((XdrvMailbox.payload < POWER_OFF) || (XdrvMailbox.payload > POWER_TOGGLE)) {
       XdrvMailbox.payload = POWER_SHOW_STATE;
@@ -368,7 +375,7 @@ void CmndPower(void)
 
 void CmndStatus(void)
 {
-  uint32_t payload = ((XdrvMailbox.payload < 0) || (XdrvMailbox.payload > MAX_STATUS)) ? 99 : XdrvMailbox.payload;
+  uint32_t payload = ValidateRangeDefault(XdrvMailbox.payload, 0, MAXSTATUS, 99);
 
   uint32_t option = STAT;
   char stemp[200];
@@ -640,6 +647,7 @@ void CmndGlobalHum(void)
 
 void CmndSleep(void)
 {
+
   if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload < 251)) {
     Settings.sleep = XdrvMailbox.payload;
     ssleep = XdrvMailbox.payload;
