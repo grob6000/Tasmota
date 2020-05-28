@@ -279,6 +279,19 @@ typedef struct {
   uint8_t dpid = 0;
 } TuyaFnidDpidMap;
 
+#ifdef USE_COVER
+typedef union {
+  uint32_t    relay_open      : 4;
+  uint32_t    relay_close     : 4;
+  uint32_t    relay_stop      : 4;
+  uint32_t    switch_open     : 4;
+  uint32_t    switch_closed   : 4;
+  uint32_t    switch_obstruct : 4;
+  uint32_t    enabled         : 1;
+  uint32_t    spare           : 7;
+} CoverParam;
+#endif //USE_COVER
+
 const uint32_t settings_text_size = 699;   // Settings.text_pool[size] = Settings.display_model (2D2) - Settings.text_pool (017)
 const uint8_t MAX_TUYA_FUNCTIONS = 16;
 
@@ -569,14 +582,15 @@ struct {
   uint8_t       windmeter_tele_pchange;    // F3E
   uint8_t	      ledpwm_on;                 // F3F
   uint8_t	      ledpwm_off;                // F40
-  uint8_t       free_f41[1];               // F41
-#ifdef USE_COVER
-  CoverCfg      cover_cfg[COVER_MAXCOUNT]; // F42 - settings for cover/door control, 3B each
-#else //USE_COVER
-  uint8_t       free_f42[COVER_MAXCOUNT*3]              // F42 - reserved for cover/door control
-#endif //USE_COVER
-  uint8_t       free_f48[112];             // F48 - Decrement if adding new Setting variables just above and below
+  
+  uint8_t       free_f41[111];             // F41 - Decrement if adding new Setting variables just above and below
+  
   // Only 32 bit boundary variables below
+#ifdef USE_COVER
+  CoverParam    cover_cfg[MAX_COVERS];   // FB0 - settings for cover/door control, 32b/4B each
+#else //USE_COVER
+  uint32_t      cover_resv[MAX_COVERS];  // FB0 - reserved for cover/door control
+#endif //USE_COVER
   uint16_t      pulse_counter_debounce_low;  // FB8
   uint16_t      pulse_counter_debounce_high; // FBA
   uint32_t      keeloq_master_msb;         // FBC
