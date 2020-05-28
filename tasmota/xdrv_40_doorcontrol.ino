@@ -16,7 +16,7 @@
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#define USE_COVER
+#define DEBUG_COVER
 #ifdef USE_COVER
 /*********************************************************************************************\
  * Basic door control - relay control, switch sensors
@@ -87,7 +87,6 @@ uint8_t coverGetPosition(uint32_t coverindex) {
 
 bool Xdrv40(uint8_t function)
 {
-  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("Xdrv40 fn=%d"), function);
   bool result = false;
 
   switch (function) {
@@ -98,7 +97,7 @@ bool Xdrv40(uint8_t function)
     //case FUNC_EVERY_50_MSECOND:
     //case FUNC_EVERY_250_MSECOND:
     case FUNC_EVERY_SECOND:
-      //coverCheckState();
+      coverCheckState();
       result = true;
       break;
     case FUNC_COMMAND:
@@ -106,8 +105,10 @@ bool Xdrv40(uint8_t function)
       break;
     case FUNC_JSON_APPEND:
       for (uint32_t i = 0; i < MAX_COVERS; i++) {
-        ResponseAppend_P(",");
-        ResponseAppend_P(JSON_COVER_STATE, i+1, coverGetStateText(i), coverGetPosition(i));
+        if (Settings.cover_cfg[i].enabled) {
+          ResponseAppend_P(",");
+          ResponseAppend_P(JSON_COVER_STATE, i+1, coverGetStateText(i), coverGetPosition(i));
+        }
       }
       result = true;
       break;
@@ -118,13 +119,16 @@ bool Xdrv40(uint8_t function)
 // init on boot
 void CoverInit(void)
 {
-  // on boot, target state is unknown
+  // on boot, state and target state is unknown
+#ifdef DEBUG_COVER
+  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("CoverInit MAX_COVERS=%d"), MAX_COVERS);
+#endif
   for (uint32_t i = 0; i < MAX_COVERS; i++) {
     coverTarget[i] = CS_UNKNOWN;
+    coverStates[i] = CS_UNKNOWN;
   }
 }
 
-/*
 // check state based on sensor input
 void coverCheckState()
 {
@@ -150,6 +154,9 @@ void coverCheckState()
         newstate = CS_OPEN;        
       }
     }
+//#ifdef DEBUG_COVER
+//    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("%dA: newstate=%d, coverstate=%d"), i, newstate, coverStates[i]);
+//#endif    
     if (newstate == CS_UNKNOWN) { // didn't get a state from sensor input
       switch (coverStates[i]) { // check last known state
         case CS_CLOSED: // change from closed to unknown - probably opening
@@ -164,12 +171,17 @@ void coverCheckState()
           newstate = CS_STOPPED; // was stopped, probably still stopped
           break;
       }
-    }
+    }        
     coverStates[i] = newstate; 
-    
+//#ifdef DEBUG_COVER
+//    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("%dB: coverstate=%d"), i, coverStates[i]);
+//#endif
     // followup
     if (coverFollowUp[i] > 0) {
       coverFollowUp[i]--;
+#ifdef DEBUG_COVER
+      AddLog_P2(LOG_LEVEL_DEBUG, PSTR("Followup countdown i=%d, t-%d"), i, coverFollowUp[i]);
+#endif
     }
     if (coverStates[i] == coverTarget[i]) {
       coverFollowUp[i] = 0;
@@ -177,10 +189,15 @@ void coverCheckState()
       // door hasn't gone where it should; hit the button again (followup only in toggle mode)
       ExecuteCommandPower(Settings.cover_cfg[i].relay_open, POWER_ON, SRC_IGNORE);
       coverFollowUp[i] = COVER_FOLLOWUPINTERVAL; // round again and again!
+#ifdef DEBUG_COVER
+      AddLog_P2(LOG_LEVEL_DEBUG, PSTR("Followup timeout i=%d"), i);
+#endif
     }
   }
+#ifdef DEBUG_COVER
+  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("cs1=%d, cs2=%d"), coverStates[0], coverStates[1]);
+#endif
 }
-*/
 
 // test: if relay_open is assigned, but relay_close is not, then we consider relay_open to be a toggle relay
 bool CoverIsToggleMode(uint8_t coverindex)
@@ -284,35 +301,37 @@ void CmndCoverConfig(void) {
   if (!(XdrvMailbox.index)) { XdrvMailbox.index = 1; };
   if ((XdrvMailbox.index <= MAX_COVERS)) {
     uint32_t coverindex = XdrvMailbox.index - 1;
-    uint32_t params[6];
-    uint32_t pcount = ParseParameters(6, params);
+    uint32_t p[6] = {0};
+    uint32_t pcount = ParseParameters(6, p);
+#ifdef DEBUG_COVER
+    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("p=[%d,%d,%d,%d,%d,%d]"), p[0], p[1], p[2], p[3], p[4], p[5]);
+#endif
     CoverParam *cp = &Settings.cover_cfg[coverindex];
     if (pcount > 0) {
-      cp->relay_open = params[0];
+      cp->relay_open = p[0];
     }
     if (pcount > 1) {
-      cp->relay_close = params[1];
+      cp->relay_close = p[1];
     }
     if (pcount > 2) {
-      cp->relay_stop = params[2];
+      cp->relay_stop = p[2];
     }
     if (pcount > 3) {
-      cp->switch_open = params[3];
+      cp->switch_open = p[3];
     }
     if (pcount > 4) {
-      cp->switch_closed = params[4];
+      cp->switch_closed = p[4];
     }
     if (pcount > 5) {
-      cp->switch_obstruct = params[5];
+      cp->switch_obstruct = p[5];
     }
     cp->enabled = (cp->relay_open || cp->relay_close || cp->relay_stop || cp->switch_open || cp->switch_closed || cp->switch_obstruct) ? 1 : 0;
     // response example: {"CoverConfig1":[1,0,0,1,2,0]}
     Response_P(S_JSON_COMMAND_COVER_CONFIG, XdrvMailbox.index, cp->relay_open, cp->relay_close, cp->relay_stop, cp->switch_open, cp->switch_closed, cp->switch_obstruct);
+#ifdef DEBUG_COVER
+    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("i=%d, pcount=%d, config=[%d,%d,%d,%d,%d,%d]"), coverindex, pcount, Settings.cover_cfg[coverindex].relay_open, Settings.cover_cfg[coverindex].relay_close, Settings.cover_cfg[coverindex].relay_stop, Settings.cover_cfg[coverindex].switch_open, Settings.cover_cfg[coverindex].switch_closed, Settings.cover_cfg[coverindex].switch_obstruct);
+#endif
   }
-}
-
-void CmndCoverState(void) {
-  
 }
 
 #endif //USE_COVER

@@ -280,7 +280,7 @@ typedef struct {
 } TuyaFnidDpidMap;
 
 #ifdef USE_COVER
-typedef union {
+typedef struct {
   uint32_t    relay_open      : 4;
   uint32_t    relay_close     : 4;
   uint32_t    relay_stop      : 4;
