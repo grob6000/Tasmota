@@ -16,16 +16,13 @@
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+#define USE_COVER
 #ifdef USE_COVER
 /*********************************************************************************************\
  * Basic door control - relay control, switch sensors
 \*********************************************************************************************/
 
 #define XDRV_40            40
-
-#define COVER_FLAG_FILTERCOMMANDS 0x01
-#define COVER_FLAG_STUBBORN 0x02
 
 #define COVER_FOLLOWUPINTERVAL 60 // seconds
 #define COVER_DOUBLETAPINTERVAL 3 // seconds
@@ -90,17 +87,20 @@ uint8_t coverGetPosition(uint32_t coverindex) {
 
 bool Xdrv40(uint8_t function)
 {
+  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("Xdrv40 fn=%d"), function);
   bool result = false;
 
   switch (function) {
     case FUNC_PRE_INIT:
       CoverInit();
+      result = true;
       break;
     //case FUNC_EVERY_50_MSECOND:
     //case FUNC_EVERY_250_MSECOND:
     case FUNC_EVERY_SECOND:
-      coverCheckState();
+      //coverCheckState();
       result = true;
+      break;
     case FUNC_COMMAND:
       result = DecodeCommand(kCoverCommands, CoverCommand);
       break;
@@ -109,8 +109,8 @@ bool Xdrv40(uint8_t function)
         ResponseAppend_P(",");
         ResponseAppend_P(JSON_COVER_STATE, i+1, coverGetStateText(i), coverGetPosition(i));
       }
+      result = true;
       break;
-    break;
   }
   return result;    
 }
@@ -124,6 +124,7 @@ void CoverInit(void)
   }
 }
 
+/*
 // check state based on sensor input
 void coverCheckState()
 {
@@ -179,6 +180,7 @@ void coverCheckState()
     }
   }
 }
+*/
 
 // test: if relay_open is assigned, but relay_close is not, then we consider relay_open to be a toggle relay
 bool CoverIsToggleMode(uint8_t coverindex)
