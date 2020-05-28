@@ -569,9 +569,13 @@ struct {
   uint8_t       windmeter_tele_pchange;    // F3E
   uint8_t	      ledpwm_on;                 // F3F
   uint8_t	      ledpwm_off;                // F40
-
-  uint8_t       free_f42[119];             // F41 - Decrement if adding new Setting variables just above and below
-
+  uint8_t       free_f41[1];               // F41
+#ifdef USE_COVER
+  CoverCfg      cover_cfg[COVER_MAXCOUNT]; // F42 - settings for cover/door control, 3B each
+#else //USE_COVER
+  uint8_t       free_f42[COVER_MAXCOUNT*3]              // F42 - reserved for cover/door control
+#endif //USE_COVER
+  uint8_t       free_f48[112];             // F48 - Decrement if adding new Setting variables just above and below
   // Only 32 bit boundary variables below
   uint16_t      pulse_counter_debounce_low;  // FB8
   uint16_t      pulse_counter_debounce_high; // FBA
