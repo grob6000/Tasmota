@@ -572,9 +572,10 @@ struct {
   uint8_t       tcp_baudrate;              // F41
   uint8_t       fallback_module;           // F42
 
-  uint8_t       free_f43[117];             // F43 - Decrement if adding new Setting variables just above and below
+  uint8_t       free_f43[115];             // F43 - Decrement if adding new Setting variables just above and below
 
   // Only 32 bit boundary variables below
+  uint16_t      adc_vref;                  // FB6
   uint16_t      pulse_counter_debounce_low;  // FB8
   uint16_t      pulse_counter_debounce_high; // FBA
   uint32_t      keeloq_master_msb;         // FBC

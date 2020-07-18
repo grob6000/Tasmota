@@ -1078,6 +1078,9 @@ void SettingsDefaultSet2(void)
   memset(&Settings.monitors, 0xFF, 20);  // Enable all possible monitors, displays and sensors
   SettingsEnableAllI2cDrivers();
 
+  // adc vref
+  Settings.adc_vref = 3300; // mV (3.3V)
+
   // Tuya
   flag3.tuya_apply_o20 |= TUYA_SETOPTION_20;
   flag3.tuya_serial_mqtt_publish |= MQTT_TUYA_RECEIVED;
@@ -1472,6 +1475,9 @@ void SettingsDelta(void)
 #endif
     if (Settings.version < 0x08030106) {
       Settings.fallback_module = FALLBACK_MODULE;
+    }
+    if (Settings.version < 0x08030108) {
+      Settings.adc_vref = 3300;
     }
 
     Settings.version = VERSION;

@@ -28,7 +28,7 @@
 #define TO_KELVIN(x) ((x) + 273.15)
 
 // Parameters for equation
-#define ANALOG_V33                    3.3              // ESP8266 Analog voltage
+//#define ANALOG_V33                    3.3              // ESP8266 Analog voltage -- replaced with Settings.adc_vref
 #define ANALOG_T0                     TO_KELVIN(25.0)  // 25 degrees Celcius in Kelvin (= 298.15)
 
 // Shelly 2.5 NTC Thermistor
@@ -137,8 +137,9 @@ uint16_t AdcGetLux(void)
 {
   int adc = AdcRead(2);
   // Source: https://www.allaboutcircuits.com/projects/design-a-luxmeter-using-a-light-dependent-resistor/
-  double resistorVoltage = ((double)adc / 1023) * ANALOG_V33;
-  double ldrVoltage = ANALOG_V33 - resistorVoltage;
+  double vref = ((double)Settings.adc_vref / 1000.0);
+  double resistorVoltage = ((double)adc / 1023) * vref;
+  double ldrVoltage = vref - resistorVoltage;
   double ldrResistance = ldrVoltage / resistorVoltage * (double)Settings.adc_param1;
   double ldrLux = (double)Settings.adc_param2 * FastPrecisePow(ldrResistance, (double)Settings.adc_param3 / 10000);
 
@@ -201,7 +202,7 @@ void AdcEverySecond(void)
   if (ADC0_TEMP == my_adc0) {
     int adc = AdcRead(2);
     // Steinhart-Hart equation for thermistor as temperature sensor
-    double Rt = (adc * Settings.adc_param1) / (1024.0 * ANALOG_V33 - (double)adc);
+    double Rt = (adc * Settings.adc_param1) / (1024.0 * ((double)Settings.adc_vref / 1000.0) - (double)adc);
     double BC = (double)Settings.adc_param3 / 10000;
     double T = BC / (BC / ANALOG_T0 + TaylorLog(Rt / (double)Settings.adc_param2));
     Adc.temperature = ConvertTemp(TO_CELSIUS(T));
@@ -376,6 +377,11 @@ void CmndAdcParam(void)
         } else {
           Settings.adc_param3 = (int)(CharToFloat(subStr(sub_string, XdrvMailbox.data, ",", 4)) * 10000);
         }
+        // set vref (optional, to be backward compatible)
+        uint16_t vref = (int)(CharToFloat(subStr(sub_string, XdrvMailbox.data, ",", 6)) * 1000);
+        if (vref > 0) {
+          Settings.adc_vref = vref;
+        }
         if (ADC0_CT_POWER == XdrvMailbox.payload) {
           if (((1 == Settings.adc_param1) & CT_FLAG_ENERGY_RESET) > 0) {
             Adc.energy = 0;
@@ -408,7 +414,7 @@ void CmndAdcParam(void)
     dtostrfd(((double)Settings.adc_param3)/10000, precision, param3);
     ResponseAppend_P(PSTR(",%s"), param3);
   }
-  ResponseAppend_P(PSTR("]}"));
+  ResponseAppend_P(PSTR("],\"" D_JSON_ADCVREF "\":%.3f}"), (float)Settings.adc_vref/1000.0);
 }
 
 /*********************************************************************************************\
