@@ -365,6 +365,9 @@ bool TuyaSetPower(void)
 
   uint8_t dpid = TuyaGetDpId(TUYA_MCU_FUNC_REL1 + active_device - 1);
   if (dpid == 0) dpid = TuyaGetDpId(TUYA_MCU_FUNC_REL1_INV + active_device - 1);
+  if (dpid == 0) {
+    return false; // quit and allow other relay control if no relays configured
+  }
 
   if (source != SRC_SWITCH && TuyaSerial) {  // ignore to prevent loop from pushing state from faceplate interaction
     TuyaSendBool(dpid, bitRead(rpower, active_device-1) ^ bitRead(rel_inverted, active_device-1));
@@ -605,17 +608,20 @@ bool TuyaModuleSelected(void)
     TuyaAddMcuFunc(TUYA_MCU_FUNC_DIMMER, TUYA_DIMMER_ID);
   }
 
-  bool relaySet = false;
+  bool somethingSet = false;
 
   for (uint8_t i = 0 ; i < MAX_TUYA_FUNCTIONS; i++) {
     if ((Settings.tuya_fnid_map[i].fnid >= TUYA_MCU_FUNC_REL1 && Settings.tuya_fnid_map[i].fnid <= TUYA_MCU_FUNC_REL8 ) ||
     (Settings.tuya_fnid_map[i].fnid >= TUYA_MCU_FUNC_REL1_INV && Settings.tuya_fnid_map[i].fnid <= TUYA_MCU_FUNC_REL8_INV )) {
-      relaySet = true;
       devices_present++;
+    }
+    if (Settings.tuya_fnid_map[i].fnid != TUYA_MCU_FUNC_NONE) {
+      somethingSet = true;
     }
   }
 
-  if (!relaySet) {
+  // add default relay if nothing is set
+  if (!somethingSet) {
     TuyaAddMcuFunc(TUYA_MCU_FUNC_REL1, 1);
     devices_present++;
     SettingsSaveAll();
